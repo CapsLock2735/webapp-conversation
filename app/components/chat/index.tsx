@@ -142,9 +142,9 @@ const Chat: FC<IChatProps> = ({
   }
 
   return (
-    <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
+    <div className={cn(!feedbackDisabled && 'px-3.5', 'min-h-full')}>
       {/* Chat List */}
-      <div className="h-full space-y-[30px]">
+      <div className="min-h-full space-y-[30px]">
         {chatList.map((item) => {
           if (item.isAnswer) {
             const isLast = item.id === chatList[chatList.length - 1].id

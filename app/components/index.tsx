@@ -682,7 +682,7 @@ const Main: FC<IMainProps> = () => {
 
   return (
     <ChatView onBack={() => setShowChat(false)}>
-      <div className='relative h-full pb-[200px]' ref={chatListDomRef}>
+      <div className='relative min-h-full pb-[200px]' ref={chatListDomRef}>
         <Chat
           chatList={chatList}
           onSend={handleSend}
