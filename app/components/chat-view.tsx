@@ -33,7 +33,7 @@ const ChatView: FC<ChatViewProps> = ({ onBack, children }) => {
 
             {/* Main Chat Area */}
             {/* We apply a mask or gradient to the bottom if needed, but standard chat works too */}
-            <div className="flex-1 overflow-hidden relative bg-[#0f0a1e]">
+            <div className="flex-1 overflow-y-auto relative bg-[#0f0a1e]">
                 {children}
             </div>
 
