@@ -558,60 +558,72 @@ const Main: FC<IMainProps> = () => {
             draft.push({ ...responseItem })
           },
         )
-        setChatList(newListWithAnswer)
-      },
-      onMessageReplace: (messageReplace) => {
-        setChatList(produce(
-          getChatList(),
-          (draft) => {
+        )
+    setChatList(newListWithAnswer)
+  },
+    onSuggestedQuestions: (suggestedQuestions) => {
+        responseItem.suggestedQuestions = suggestedQuestions.data
+  const newListWithAnswer = produce(
+    getChatList().filter(item => item.id !== responseItem.id && item.id !== placeholderAnswerId),
+    (draft) => {
+      if (!draft.find(item => item.id === questionId)) { draft.push({ ...questionItem }) }
+      draft.push({ ...responseItem })
+    },
+  )
+  setChatList(newListWithAnswer)
+},
+  onMessageReplace: (messageReplace) => {
+    setChatList(produce(
+      getChatList(),
+    (draft) => {
             const current = draft.find(item => item.id === messageReplace.id)
 
-            if (current) { current.content = messageReplace.answer }
+if (current) { current.content = messageReplace.answer }
           },
         ))
       },
-      onError() {
-        setRespondingFalse()
-        // role back placeholder answer
-        setChatList(produce(getChatList(), (draft) => {
-          draft.splice(draft.findIndex(item => item.id === placeholderAnswerId), 1)
-        }))
-      },
-      onWorkflowStarted: ({ workflow_run_id, task_id }) => {
-        // taskIdRef.current = task_id
-        responseItem.workflow_run_id = workflow_run_id
-        responseItem.workflowProcess = {
-          status: WorkflowRunningStatus.Running,
-          tracing: [],
+onError() {
+  setRespondingFalse()
+  // role back placeholder answer
+  setChatList(produce(getChatList(), (draft) => {
+    draft.splice(draft.findIndex(item => item.id === placeholderAnswerId), 1)
+  }))
+},
+onWorkflowStarted: ({ workflow_run_id, task_id }) => {
+  // taskIdRef.current = task_id
+  responseItem.workflow_run_id = workflow_run_id
+  responseItem.workflowProcess = {
+    status: WorkflowRunningStatus.Running,
+    tracing: [],
+  }
+  setChatList(produce(getChatList(), (draft) => {
+    const currentIndex = draft.findIndex(item => item.id === responseItem.id)
+    draft[currentIndex] = {
+      ...draft[currentIndex],
+      ...responseItem,
+    }
+  }))
+},
+  onWorkflowFinished: ({ data }) => {
+    responseItem.workflowProcess!.status = data.status as WorkflowRunningStatus
+    setChatList(produce(getChatList(), (draft) => {
+      const currentIndex = draft.findIndex(item => item.id === responseItem.id)
+      draft[currentIndex] = {
+        ...draft[currentIndex],
+        ...responseItem,
+      }
+    }))
+  },
+    onNodeStarted: ({ data }) => {
+      responseItem.workflowProcess!.tracing!.push(data as any)
+      setChatList(produce(getChatList(), (draft) => {
+        const currentIndex = draft.findIndex(item => item.id === responseItem.id)
+        draft[currentIndex] = {
+          ...draft[currentIndex],
+          ...responseItem,
         }
-        setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
-            ...responseItem,
-          }
-        }))
-      },
-      onWorkflowFinished: ({ data }) => {
-        responseItem.workflowProcess!.status = data.status as WorkflowRunningStatus
-        setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
-            ...responseItem,
-          }
-        }))
-      },
-      onNodeStarted: ({ data }) => {
-        responseItem.workflowProcess!.tracing!.push(data as any)
-        setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
-            ...responseItem,
-          }
-        }))
-      },
+      }))
+    },
       onNodeFinished: ({ data }) => {
         const currentIndex = responseItem.workflowProcess!.tracing!.findIndex(item => item.node_id === data.node_id)
         responseItem.workflowProcess!.tracing[currentIndex] = data as any
@@ -626,65 +638,65 @@ const Main: FC<IMainProps> = () => {
     })
   }
 
-  const handleFeedback = async (messageId: string, feedback: Feedbacktype) => {
-    await updateFeedback({ url: `/messages/${messageId}/feedbacks`, body: { rating: feedback.rating } })
-    const newChatList = chatList.map((item) => {
-      if (item.id === messageId) {
-        return {
-          ...item,
-          feedback,
-        }
+const handleFeedback = async (messageId: string, feedback: Feedbacktype) => {
+  await updateFeedback({ url: `/messages/${messageId}/feedbacks`, body: { rating: feedback.rating } })
+  const newChatList = chatList.map((item) => {
+    if (item.id === messageId) {
+      return {
+        ...item,
+        feedback,
       }
-      return item
-    })
-    setChatList(newChatList)
-    notify({ type: 'success', message: t('common.api.success') })
-  }
+    }
+    return item
+  })
+  setChatList(newChatList)
+  notify({ type: 'success', message: t('common.api.success') })
+}
 
-  const renderSidebar = () => {
-    if (!APP_ID || !APP_INFO || !promptConfig) { return null }
-    return (
-      <Sidebar
-        list={conversationList}
-        onCurrentIdChange={handleConversationIdChange}
-        currentId={currConversationId}
-        copyRight={APP_INFO.copyright || APP_INFO.title}
-      />
-    )
-  }
-
-  if (appUnavailable) { return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={!hasSetAppConfig ? 'Please set APP_ID and API_KEY in config/index.tsx' : ''} /> }
-
-  if (!APP_ID || !APP_INFO || !promptConfig) { return <Loading type='app' /> }
-
-
-  if (!showChat) {
-    return (
-      <HomeView
-        onStartChat={() => {
-          handleStartChat({})
-          setShowChat(true)
-        }}
-      />
-    )
-  }
-
+const renderSidebar = () => {
+  if (!APP_ID || !APP_INFO || !promptConfig) { return null }
   return (
-    <ChatView onBack={() => setShowChat(false)}>
-      <div className='relative h-full pb-[200px]' ref={chatListDomRef}>
-        <Chat
-          chatList={chatList}
-          onSend={handleSend}
-          onFeedback={handleFeedback}
-          isResponding={isResponding}
-          checkCanSend={checkCanSend}
-          visionConfig={visionConfig}
-          fileConfig={fileConfig}
-          isHideSendInput={false}
-        />
-      </div>
-    </ChatView>
+    <Sidebar
+      list={conversationList}
+      onCurrentIdChange={handleConversationIdChange}
+      currentId={currConversationId}
+      copyRight={APP_INFO.copyright || APP_INFO.title}
+    />
   )
+}
+
+if (appUnavailable) { return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={!hasSetAppConfig ? 'Please set APP_ID and API_KEY in config/index.tsx' : ''} /> }
+
+if (!APP_ID || !APP_INFO || !promptConfig) { return <Loading type='app' /> }
+
+
+if (!showChat) {
+  return (
+    <HomeView
+      onStartChat={() => {
+        handleStartChat({})
+        setShowChat(true)
+      }}
+    />
+  )
+}
+
+return (
+  <ChatView onBack={() => setShowChat(false)}>
+    <div className='relative h-full pb-[200px]' ref={chatListDomRef}>
+      <Chat
+        chatList={chatList}
+        onSend={handleSend}
+        onFeedback={handleFeedback}
+        isResponding={isResponding}
+        checkCanSend={checkCanSend}
+        visionConfig={visionConfig}
+        fileConfig={fileConfig}
+        isHideSendInput={false}
+      />
+    </div>
+  </ChatView>
+)
 }
 
 export default React.memo(Main)

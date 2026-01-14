@@ -113,6 +113,7 @@ export type IOnWorkflowStarted = (workflowStarted: WorkflowStartedResponse) => v
 export type IOnWorkflowFinished = (workflowFinished: WorkflowFinishedResponse) => void
 export type IOnNodeStarted = (nodeStarted: NodeStartedResponse) => void
 export type IOnNodeFinished = (nodeFinished: NodeFinishedResponse) => void
+export type IOnSuggestedQuestions = (suggestedQuestions: { data: string[] }) => void
 
 interface IOtherOptions {
   isPublicAPI?: boolean
@@ -124,6 +125,7 @@ interface IOtherOptions {
   onFile?: IOnFile
   onMessageEnd?: IOnMessageEnd
   onMessageReplace?: IOnMessageReplace
+  onSuggestedQuestions?: IOnSuggestedQuestions
   onError?: IOnError
   onCompleted?: IOnCompleted // for stream
   getAbortController?: (abortController: AbortController) => void
@@ -151,6 +153,7 @@ const handleStream = (
   onWorkflowFinished?: IOnWorkflowFinished,
   onNodeStarted?: IOnNodeStarted,
   onNodeFinished?: IOnNodeFinished,
+  onSuggestedQuestions?: IOnSuggestedQuestions,
 ) => {
   if (!response.ok) { throw new Error('Network response was not ok') }
 
@@ -213,6 +216,9 @@ const handleStream = (
             }
             else if (bufferObj.event === 'message_replace') {
               onMessageReplace?.(bufferObj as MessageReplace)
+            }
+            else if (bufferObj.event === 'suggested_questions') {
+              onSuggestedQuestions?.(bufferObj as { data: string[] })
             }
             else if (bufferObj.event === 'workflow_started') {
               onWorkflowStarted?.(bufferObj as WorkflowStartedResponse)
@@ -367,6 +373,7 @@ export const ssePost = (
     onWorkflowFinished,
     onNodeStarted,
     onNodeFinished,
+    onSuggestedQuestions,
     onError,
   }: IOtherOptions,
 ) => {
@@ -400,7 +407,7 @@ export const ssePost = (
         onData?.(str, isFirstMessage, moreInfo)
       }, () => {
         onCompleted?.()
-      }, onThought, onMessageEnd, onMessageReplace, onFile, onWorkflowStarted, onWorkflowFinished, onNodeStarted, onNodeFinished)
+      }, onThought, onMessageEnd, onMessageReplace, onFile, onWorkflowStarted, onWorkflowFinished, onNodeStarted, onNodeFinished, onSuggestedQuestions)
     })
     .catch((e) => {
       Toast.notify({ type: 'error', message: e })
