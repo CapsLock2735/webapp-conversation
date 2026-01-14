@@ -44,7 +44,7 @@ const detectAdvisor = (content: string) => {
           title: data.title || 'Advisor',
           match_reason: data.match_reason || '',
           match_score: data.match_score || '',
-          status: 'Available',
+          status: 'Available' as 'Available',
           avatarUrl: ACIVAT_MAP[data.id] || '/astriva_avatar/Bad@3x.png',
           price: '$2/Min'
         },
@@ -264,13 +264,22 @@ const Answer: FC<IAnswerProps> = ({
                   : (
                     <StreamdownMarkdown content={cleanContent} />
                   ))}
-              {suggestedQuestions.length > 0 && (
-                <div className="mt-3">
-                  <div className="flex gap-1 mt-1 flex-wrap">
+              {suggestedQuestions && suggestedQuestions.length > 0 && !isResponding && (
+                <div className="mt-4 pt-3 border-t border-white/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="h-[1px] bg-white/10 flex-1"></div>
+                    <span className="text-xs text-gray-400 px-3">Try Asking</span>
+                    <div className="h-[1px] bg-white/10 flex-1"></div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     {suggestedQuestions.map((suggestion, index) => (
-                      <div key={index} className="flex items-center gap-1">
-                        <Button className="text-sm" type="link" onClick={() => suggestionClick(suggestion)}>{suggestion}</Button>
-                      </div>
+                      <button
+                        key={index}
+                        onClick={() => suggestionClick(suggestion)}
+                        className="bg-[#3b2b63] hover:bg-[#4c1d95] border border-[#5b4285] text-white/90 text-xs px-4 py-2 rounded-2xl transition-all shadow-sm text-center"
+                      >
+                        {suggestion}
+                      </button>
                     ))}
                   </div>
                 </div>
