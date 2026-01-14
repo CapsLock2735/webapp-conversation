@@ -15,7 +15,7 @@ interface ChatViewProps {
 
 const ChatView: FC<ChatViewProps> = ({ onBack, children }) => {
     return (
-        <div className="flex flex-col h-screen bg-[#0f0a1e] text-white overflow-hidden custom-chat-theme">
+        <div className="flex flex-col h-screen bg-[#0f0a1e] text-white overflow-hidden custom-chat-theme max-w-[480px] mx-auto w-full shadow-2xl">
             {/* Custom Header */}
             <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-[#0f0a1e] relative z-20">
                 <button onClick={onBack} className="p-2 -ml-2 text-white">

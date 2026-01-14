@@ -7,7 +7,7 @@ interface HomeViewProps {
 
 const HomeView: React.FC<HomeViewProps> = ({ onStartChat }) => {
     return (
-        <div className="bg-[#0f0a1e] min-h-screen text-white font-sans pb-20 overflow-y-auto">
+        <div className="bg-[#0f0a1e] min-h-screen text-white font-sans pb-20 overflow-y-auto max-w-[480px] mx-auto w-full shadow-2xl">
             {/* Header / Search */}
             <div className="p-4 pt-10 flex items-center space-x-3">
                 <div className="flex-1 bg-[#2a1f45] rounded-full flex items-center px-4 py-2 space-x-2">
@@ -137,7 +137,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onStartChat }) => {
             </div>
 
             {/* Bottom Nav */}
-            <div className="fixed bottom-0 left-0 right-0 bg-[#0f0a1e]/90 backdrop-blur-md border-t border-white/5 py-3 px-6 flex justify-between items-end z-50">
+            <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 max-w-[480px] w-full bg-[#0f0a1e]/90 backdrop-blur-md border-t border-white/5 py-3 px-6 flex justify-between items-end z-50">
                 <div className="flex flex-col items-center text-gray-400 space-y-1">
                     <Home className="w-5 h-5" />
                     <span className="text-[10px]">Home</span>
