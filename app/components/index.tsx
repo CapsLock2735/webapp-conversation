@@ -526,6 +526,9 @@ const Main: FC<IMainProps> = () => {
         })
       },
       onMessageEnd: (messageEnd) => {
+        if (messageEnd.metadata?.suggested_questions) {
+          responseItem.suggestedQuestions = messageEnd.metadata.suggested_questions
+        }
         if (messageEnd.metadata?.annotation_reply) {
           responseItem.id = messageEnd.id
           responseItem.annotation = ({
