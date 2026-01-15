@@ -526,8 +526,27 @@ const Main: FC<IMainProps> = () => {
         })
       },
       onMessageEnd: (messageEnd) => {
-        if (messageEnd.metadata?.suggested_questions) {
+        if (messageEnd.metadata?.suggested_questions && messageEnd.metadata.suggested_questions.length > 0) {
           responseItem.suggestedQuestions = messageEnd.metadata.suggested_questions
+        }
+        else {
+          console.log('[DEBUG] Fetching suggestions for', messageEnd.id)
+          fetch(`/api/suggestions?messageId=${messageEnd.id}`)
+            .then(res => res.json())
+            .then((res) => {
+              console.log('[DEBUG] Suggestions API result:', res)
+              if (res.result === 'success' && res.data && res.data.length > 0) {
+                setChatList(produce(getChatList(), (draft) => {
+                  const item = draft.find(item => item.id === responseItem.id)
+                  if (item) {
+                    item.suggestedQuestions = res.data
+                  }
+                }))
+              }
+            })
+            .catch((e) => {
+              console.error('[DEBUG] Fetch suggestions failed', e)
+            })
         }
         if (messageEnd.metadata?.annotation_reply) {
           responseItem.id = messageEnd.id
