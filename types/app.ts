@@ -85,6 +85,7 @@ export interface IChatItem {
   useCurrentUserAvatar?: boolean
   isOpeningStatement?: boolean
   suggestedQuestions?: string[]
+  isLoadingSuggestions?: boolean
   log?: { role: string, text: string }[]
   agent_thoughts?: ThoughtItem[]
   message_files?: VisionFile[]
@@ -96,7 +97,7 @@ export type ChatItem = IChatItem & {
   workflowProcess?: WorkflowProcess
 }
 
-export interface ResponseHolder {}
+export interface ResponseHolder { }
 
 export interface ConversationItem {
   id: string

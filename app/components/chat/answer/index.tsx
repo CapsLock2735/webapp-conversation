@@ -55,6 +55,15 @@ const detectAdvisor = (content: string) => {
     }
   }
 
+  // [Optimization] Hide partial JSON output during streaming
+  // Matches the start of the JSON block (e.g. ```json { "id": "adv_...) up to the ID part
+  // so we can truncate it before it is fully formed and parsed.
+  const partialRegex = /(?:```json\s*)?\{[\s\S]*?"id":\s*"adv_\d+/
+  const partialMatch = content.match(partialRegex)
+  if (partialMatch && partialMatch.index !== undefined) {
+    return { advisor: null, cleanContent: content.substring(0, partialMatch.index).trim() }
+  }
+
   // Fallback for simple keyword matching
   if (content.includes('David Wilson') && content.length < 500) {
     return {
@@ -264,25 +273,43 @@ const Answer: FC<IAnswerProps> = ({
                   : (
                     <StreamdownMarkdown content={cleanContent} />
                   ))}
-              {suggestedQuestions && suggestedQuestions.length > 0 && !isResponding && (
-                <div className="mt-4 pt-3 border-t border-white/5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="h-[1px] bg-white/10 flex-1"></div>
-                    <span className="text-xs text-gray-400 px-3">Try Asking</span>
-                    <div className="h-[1px] bg-white/10 flex-1"></div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {suggestedQuestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => suggestionClick(suggestion)}
-                        className="bg-[#3b2b63] hover:bg-[#4c1d95] border border-[#5b4285] text-white/90 text-xs px-4 py-2 rounded-2xl transition-all shadow-sm text-center"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              {/* Suggested Questions Section */}
+              {!isResponding && (
+                <>
+                  {suggestedQuestions && suggestedQuestions.length > 0 ? (
+                    <div className="mt-4 pt-3 border-t border-white/5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="h-[1px] bg-white/10 flex-1"></div>
+                        <span className="text-xs text-gray-400 px-3">Try Asking</span>
+                        <div className="h-[1px] bg-white/10 flex-1"></div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestedQuestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            onClick={() => suggestionClick(suggestion)}
+                            className="bg-[#3b2b63] hover:bg-[#4c1d95] border border-[#5b4285] text-white/90 text-xs px-4 py-2 rounded-2xl transition-all shadow-sm text-center"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : item.isLoadingSuggestions ? (
+                    <div className="mt-4 pt-3 border-t border-white/5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="h-[1px] bg-white/10 flex-1"></div>
+                        <span className="text-xs text-gray-400 px-3 opacity-50">Thinking...</span>
+                        <div className="h-[1px] bg-white/10 flex-1"></div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 animate-pulse">
+                        <div className="h-8 w-24 bg-white/10 rounded-2xl"></div>
+                        <div className="h-8 w-32 bg-white/10 rounded-2xl"></div>
+                        <div className="h-8 w-20 bg-white/10 rounded-2xl"></div>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
             {/* Advisor Card Extraction */}

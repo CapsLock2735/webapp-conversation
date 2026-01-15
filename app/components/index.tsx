@@ -530,22 +530,30 @@ const Main: FC<IMainProps> = () => {
           responseItem.suggestedQuestions = messageEnd.metadata.suggested_questions
         }
         else {
+          responseItem.isLoadingSuggestions = true
           console.log('[DEBUG] Fetching suggestions for', messageEnd.id)
           fetch(`/api/suggestions?messageId=${messageEnd.id}`)
             .then(res => res.json())
             .then((res) => {
               console.log('[DEBUG] Suggestions API result:', res)
-              if (res.result === 'success' && res.data && res.data.length > 0) {
-                setChatList(produce(getChatList(), (draft) => {
-                  const item = draft.find(item => item.id === responseItem.id)
-                  if (item) {
+              setChatList(produce(getChatList(), (draft) => {
+                const item = draft.find(item => item.id === responseItem.id)
+                if (item) {
+                  item.isLoadingSuggestions = false
+                  if (res.result === 'success' && res.data && res.data.length > 0) {
                     item.suggestedQuestions = res.data
                   }
-                }))
-              }
+                }
+              }))
             })
             .catch((e) => {
               console.error('[DEBUG] Fetch suggestions failed', e)
+              setChatList(produce(getChatList(), (draft) => {
+                const item = draft.find(item => item.id === responseItem.id)
+                if (item) {
+                  item.isLoadingSuggestions = false
+                }
+              }))
             })
         }
         if (messageEnd.metadata?.annotation_reply) {
