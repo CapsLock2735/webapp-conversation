@@ -38,7 +38,7 @@ const detectAdvisor = (content: string) => {
   const normalizeAdvisor = (raw: any, fallbackId?: string) => {
     const matchReason = raw?.matchReason ?? raw?.match_reason ?? ''
     const matchScore = raw?.matchScore ?? raw?.match_score ?? ''
-    const id = raw?.id ?? fallbackId
+    const id = raw?.id ?? raw?.advisorId ?? raw?.advisor_id ?? fallbackId
     const knownAdvisor = id ? ADVISOR_DIRECTORY[id] : undefined
     return {
       name: raw?.name || knownAdvisor?.name || 'Advisor',
@@ -53,24 +53,45 @@ const detectAdvisor = (content: string) => {
     }
   }
 
-  // Prefer the new format: { "advisor": { "id": "...", "matchReason": "..." } }
-  const fencedJsonRegex = /```json\s*([\s\S]*?)```/
-  const fencedMatch = content.match(fencedJsonRegex)
-  if (fencedMatch) {
+  const extractAdvisorFromJson = (jsonStr: string) => {
     try {
-      const jsonStr = fencedMatch[1].trim()
       const data = JSON.parse(jsonStr)
       const advisorData = data?.advisor
       if (advisorData && typeof advisorData === 'object') {
-        const cleanContent = content.replace(fencedMatch[0], '').trim()
-        return {
-          advisor: normalizeAdvisor(advisorData),
-          cleanContent,
-        }
+        return normalizeAdvisor(advisorData)
       }
     } catch (e) {
-      // fall through to non-fenced parsing / partial handling
+      // try a lenient extraction for id/matchReason
+      const idMatch = jsonStr.match(/"(?:id|advisorId|advisor_id)"\s*:\s*"([^"]+)"/)
+      const reasonMatch = jsonStr.match(/"(?:matchReason|match_reason)"\s*:\s*"([^"]+)"/)
+      if (idMatch || reasonMatch) {
+        return normalizeAdvisor({
+          id: idMatch?.[1],
+          matchReason: reasonMatch?.[1],
+        })
+      }
     }
+    return null
+  }
+
+  // Hide incomplete fenced JSON blocks during streaming
+  const fenceStartMatch = content.match(/```\s*json/i)
+  if (fenceStartMatch && fenceStartMatch.index !== undefined) {
+    const fenceStart = fenceStartMatch.index
+    const fenceEnd = content.indexOf('```', fenceStart + 3)
+    if (fenceEnd === -1) {
+      return { advisor: null, cleanContent: content.substring(0, fenceStart).trim() }
+    }
+  }
+
+  // Prefer the new format: ```json { "advisor": { ... } } ```
+  const fencedJsonRegex = /```\s*json\s*([\s\S]*?)```/i
+  const fencedMatch = content.match(fencedJsonRegex)
+  if (fencedMatch) {
+    const jsonStr = fencedMatch[1].trim()
+    const advisor = extractAdvisorFromJson(jsonStr)
+    const cleanContent = content.replace(fencedMatch[0], '').trim()
+    return { advisor, cleanContent }
   }
 
   const newFormatRegex = /\{[\s\S]*?"advisor"\s*:\s*\{[\s\S]*?\}[\s\S]*?\}/
@@ -88,7 +109,13 @@ const detectAdvisor = (content: string) => {
         }
       }
     } catch (e) {
-      // fall through to legacy format / partial handling
+      const advisor = extractAdvisorFromJson(jsonStr)
+      const cleanContent = content.replace(jsonStr, '').trim()
+      if (advisor) {
+        return { advisor, cleanContent }
+      }
+      // Hide the JSON snippet to keep the chat clean even if parsing fails
+      return { advisor: null, cleanContent }
     }
   }
 
@@ -113,7 +140,6 @@ const detectAdvisor = (content: string) => {
   // Matches the start of the JSON block (e.g. ```json { "advisor": { ... } or { "id": "adv_...)
   // so we can truncate it before it is fully formed and parsed.
   const partialRegexes = [
-    /```json[\s\S]*$/,
     /(?:```json\s*)?\{[\s\S]*?"advisor"\s*:\s*\{[\s\S]*?/,
     /(?:```json\s*)?\{[\s\S]*?"id":\s*"adv_\d+/,
   ]
