@@ -17,7 +17,7 @@ import Chat from '@/app/components/chat'
 import { setLocaleOnClient } from '@/i18n/client'
 import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
 import Loading from '@/app/components/base/loading'
-import { replaceVarWithValues, userInputsFormToPromptVariables } from '@/utils/prompt'
+import { replaceVarWithValues, resolvePromptTemplate, userInputsFormToPromptVariables } from '@/utils/prompt'
 import AppUnavailable from '@/app/components/app-unavailable'
 import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate } from '@/config'
 import type { Annotation as AnnotationType } from '@/types/log'
@@ -260,8 +260,9 @@ const Main: FC<IMainProps> = () => {
           })
         }
         const prompt_variables = userInputsFormToPromptVariables(user_input_form)
+        const resolvedPromptTemplate = resolvePromptTemplate(appParams)
         setPromptConfig({
-          prompt_template: promptTemplate,
+          prompt_template: resolvedPromptTemplate === undefined ? promptTemplate : resolvedPromptTemplate,
           prompt_variables,
         } as PromptConfig)
         const outerFileUploadEnabled = !!file_upload?.enabled
