@@ -237,7 +237,8 @@ const Answer: FC<IAnswerProps> = ({
   const isAgentMode = !!agent_thoughts && agent_thoughts.length > 0
 
   // Use Memo to prevent re-parsing on every render
-  const { advisor, cleanContent } = useMemo(() => detectAdvisor(content), [content])
+  const sourceContent = (item as any).raw_content || content
+  const { advisor, cleanContent } = useMemo(() => detectAdvisor(sourceContent), [sourceContent])
 
   const { t } = useTranslation()
 

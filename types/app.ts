@@ -61,6 +61,7 @@ export interface MessageMore {
 export interface IChatItem {
   id: string
   content: string
+  raw_content?: string
   /**
    * Specific message type
    */
