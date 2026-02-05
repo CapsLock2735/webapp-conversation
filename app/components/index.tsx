@@ -18,6 +18,7 @@ import { setLocaleOnClient } from '@/i18n/client'
 import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
 import Loading from '@/app/components/base/loading'
 import { replaceVarWithValues, resolvePromptTemplate, userInputsFormToPromptVariables } from '@/utils/prompt'
+import { stripJsonBlocksForDisplay } from '@/utils/response'
 import AppUnavailable from '@/app/components/app-unavailable'
 import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate } from '@/config'
 import type { Annotation as AnnotationType } from '@/types/log'
@@ -460,7 +461,9 @@ const Main: FC<IMainProps> = () => {
       },
       onData: (message: string, isFirstMessage: boolean, { conversationId: newConversationId, messageId, taskId }: any) => {
         if (!isAgentMode) {
-          responseItem.content = responseItem.content + message
+          const rawContent = `${(responseItem as any).raw_content || responseItem.content}${message}`
+          ;(responseItem as any).raw_content = rawContent
+          responseItem.content = stripJsonBlocksForDisplay(rawContent)
         }
         else {
           const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts?.length - 1]

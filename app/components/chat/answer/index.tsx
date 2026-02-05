@@ -25,25 +25,75 @@ const ACIVAT_MAP: Record<string, string> = {
   'adv_004': '/astriva_avatar/Angry@3x.png'
 }
 
+const ADVISOR_DIRECTORY: Record<string, { name: string, title?: string, avatarUrl?: string }> = {
+  'd4a8e5e1-0359-4b90-a517-283ea9f5d57d': { name: 'Bette Flame' },
+  '01692cb6-c2e5-4de5-8bb5-2e09c7a9223c': { name: 'Advisor Juno' },
+  '3389422a-93b2-4d9d-8ea0-bf0074bc3102': { name: 'Maya' },
+  'fac8b92c-0e6d-4699-be95-a1aa948aa2c6': { name: 'Caroline' },
+}
+
 const detectAdvisor = (content: string) => {
   if (!content) return { advisor: null, cleanContent: '' }
 
   const normalizeAdvisor = (raw: any, fallbackId?: string) => {
     const matchReason = raw?.matchReason ?? raw?.match_reason ?? ''
     const matchScore = raw?.matchScore ?? raw?.match_score ?? ''
-    const id = raw?.id ?? fallbackId
+    const id = raw?.id ?? raw?.advisorId ?? raw?.advisor_id ?? fallbackId
+    const knownAdvisor = id ? ADVISOR_DIRECTORY[id] : undefined
     return {
-      name: raw?.name || 'Advisor',
-      title: raw?.title || 'Advisor',
+      name: raw?.name || knownAdvisor?.name || 'Advisor',
+      title: raw?.title || knownAdvisor?.title || 'Advisor',
       match_reason: matchReason,
       match_score: matchScore,
       status: 'Available' as 'Available',
-      avatarUrl: (id && ACIVAT_MAP[id]) ? ACIVAT_MAP[id] : '/astriva_avatar/Bad@3x.png',
+      avatarUrl: (id && ACIVAT_MAP[id])
+        ? ACIVAT_MAP[id]
+        : (knownAdvisor?.avatarUrl || '/astriva_avatar/Bad@3x.png'),
       price: raw?.price || '$2/Min',
     }
   }
 
-  // Prefer the new format: { "advisor": { "id": "...", "matchReason": "..." } }
+  const extractAdvisorFromJson = (jsonStr: string) => {
+    try {
+      const data = JSON.parse(jsonStr)
+      const advisorData = data?.advisor
+      if (advisorData && typeof advisorData === 'object') {
+        return normalizeAdvisor(advisorData)
+      }
+    } catch (e) {
+      // try a lenient extraction for id/matchReason
+      const idMatch = jsonStr.match(/"(?:id|advisorId|advisor_id)"\s*:\s*"([^"]+)"/)
+      const reasonMatch = jsonStr.match(/"(?:matchReason|match_reason)"\s*:\s*"([^"]+)"/)
+      if (idMatch || reasonMatch) {
+        return normalizeAdvisor({
+          id: idMatch?.[1],
+          matchReason: reasonMatch?.[1],
+        })
+      }
+    }
+    return null
+  }
+
+  // Hide incomplete fenced JSON blocks during streaming
+  const fenceStartMatch = content.match(/```\s*json/i)
+  if (fenceStartMatch && fenceStartMatch.index !== undefined) {
+    const fenceStart = fenceStartMatch.index
+    const fenceEnd = content.indexOf('```', fenceStart + 3)
+    if (fenceEnd === -1) {
+      return { advisor: null, cleanContent: content.substring(0, fenceStart).trim() }
+    }
+  }
+
+  // Prefer the new format: ```json { "advisor": { ... } } ```
+  const fencedJsonRegex = /```\s*json\s*([\s\S]*?)```/i
+  const fencedMatch = content.match(fencedJsonRegex)
+  if (fencedMatch) {
+    const jsonStr = fencedMatch[1].trim()
+    const advisor = extractAdvisorFromJson(jsonStr)
+    const cleanContent = content.replace(fencedMatch[0], '').trim()
+    return { advisor, cleanContent }
+  }
+
   const newFormatRegex = /\{[\s\S]*?"advisor"\s*:\s*\{[\s\S]*?\}[\s\S]*?\}/
   const newFormatMatch = content.match(newFormatRegex)
   if (newFormatMatch) {
@@ -59,7 +109,13 @@ const detectAdvisor = (content: string) => {
         }
       }
     } catch (e) {
-      // fall through to legacy format / partial handling
+      const advisor = extractAdvisorFromJson(jsonStr)
+      const cleanContent = content.replace(jsonStr, '').trim()
+      if (advisor) {
+        return { advisor, cleanContent }
+      }
+      // Hide the JSON snippet to keep the chat clean even if parsing fails
+      return { advisor: null, cleanContent }
     }
   }
 
@@ -181,7 +237,8 @@ const Answer: FC<IAnswerProps> = ({
   const isAgentMode = !!agent_thoughts && agent_thoughts.length > 0
 
   // Use Memo to prevent re-parsing on every render
-  const { advisor, cleanContent } = useMemo(() => detectAdvisor(content), [content])
+  const sourceContent = (item as any).raw_content || content
+  const { advisor, cleanContent } = useMemo(() => detectAdvisor(sourceContent), [sourceContent])
 
   const { t } = useTranslation()
 
