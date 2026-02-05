@@ -240,9 +240,6 @@ const Main: FC<IMainProps> = () => {
           throw new Error(error)
           return
         }
-        const _conversationId = getConversationIdFromStorage(APP_ID)
-        const currentConversation = conversations.find(item => item.id === _conversationId)
-        const isNotNewConversation = !!currentConversation
 
         // fetch new conversation info
         const { user_input_form, opening_statement: introduction, file_upload, system_parameters, suggested_questions = [] }: any = appParams
@@ -252,6 +249,36 @@ const Main: FC<IMainProps> = () => {
           introduction,
           suggested_questions,
         })
+        const prompt_variables = userInputsFormToPromptVariables(user_input_form)
+        const resolvedPromptTemplate = resolvePromptTemplate(appParams)
+        const appliedPromptTemplate = resolvedPromptTemplate === undefined ? promptTemplate : resolvedPromptTemplate
+
+        // If the prompt template changed, reset stored conversation id
+        try {
+          const promptTemplateStorageKey = 'promptTemplateInfo'
+          const storedPromptInfo = globalThis.localStorage?.getItem(promptTemplateStorageKey)
+            ? JSON.parse(globalThis.localStorage?.getItem(promptTemplateStorageKey) || '')
+            : {}
+          const prevPromptTemplate = storedPromptInfo?.[APP_ID]
+          if (prevPromptTemplate && prevPromptTemplate !== appliedPromptTemplate) {
+            const conversationIdInfoKey = 'conversationIdInfo'
+            const storedConversationInfo = globalThis.localStorage?.getItem(conversationIdInfoKey)
+              ? JSON.parse(globalThis.localStorage?.getItem(conversationIdInfoKey) || '')
+              : {}
+            delete storedConversationInfo[APP_ID]
+            globalThis.localStorage?.setItem(conversationIdInfoKey, JSON.stringify(storedConversationInfo))
+          }
+          storedPromptInfo[APP_ID] = appliedPromptTemplate
+          globalThis.localStorage?.setItem(promptTemplateStorageKey, JSON.stringify(storedPromptInfo))
+        }
+        catch (e) {
+          // ignore localStorage errors (e.g., private mode)
+        }
+
+        const _conversationId = getConversationIdFromStorage(APP_ID)
+        const currentConversation = conversations.find(item => item.id === _conversationId)
+        const isNotNewConversation = !!currentConversation
+
         if (isNotNewConversation) {
           setExistConversationInfo({
             name: currentConversation.name || t('app.chat.newChatDefaultName'),
@@ -259,10 +286,8 @@ const Main: FC<IMainProps> = () => {
             suggested_questions,
           })
         }
-        const prompt_variables = userInputsFormToPromptVariables(user_input_form)
-        const resolvedPromptTemplate = resolvePromptTemplate(appParams)
         setPromptConfig({
-          prompt_template: resolvedPromptTemplate === undefined ? promptTemplate : resolvedPromptTemplate,
+          prompt_template: appliedPromptTemplate,
           prompt_variables,
         } as PromptConfig)
         const outerFileUploadEnabled = !!file_upload?.enabled
