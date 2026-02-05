@@ -28,27 +28,52 @@ const ACIVAT_MAP: Record<string, string> = {
 const detectAdvisor = (content: string) => {
   if (!content) return { advisor: null, cleanContent: '' }
 
-  // Regex to find the JSON block looking for unique "adv_" pattern
-  const jsonRegex = /\{[\s\S]*?"id":\s*"adv_\d+"[\s\S]*?\}/
-  const match = content.match(jsonRegex)
+  const normalizeAdvisor = (raw: any, fallbackId?: string) => {
+    const matchReason = raw?.matchReason ?? raw?.match_reason ?? ''
+    const matchScore = raw?.matchScore ?? raw?.match_score ?? ''
+    const id = raw?.id ?? fallbackId
+    return {
+      name: raw?.name || 'Advisor',
+      title: raw?.title || 'Advisor',
+      match_reason: matchReason,
+      match_score: matchScore,
+      status: 'Available' as 'Available',
+      avatarUrl: (id && ACIVAT_MAP[id]) ? ACIVAT_MAP[id] : '/astriva_avatar/Bad@3x.png',
+      price: raw?.price || '$2/Min',
+    }
+  }
 
-  if (match) {
+  // Prefer the new format: { "advisor": { "id": "...", "matchReason": "..." } }
+  const newFormatRegex = /\{[\s\S]*?"advisor"\s*:\s*\{[\s\S]*?\}[\s\S]*?\}/
+  const newFormatMatch = content.match(newFormatRegex)
+  if (newFormatMatch) {
     try {
-      const jsonStr = match[0]
+      const jsonStr = newFormatMatch[0]
+      const data = JSON.parse(jsonStr)
+      const advisorData = data?.advisor
+      if (advisorData && typeof advisorData === 'object') {
+        const cleanContent = content.replace(jsonStr, '').trim()
+        return {
+          advisor: normalizeAdvisor(advisorData),
+          cleanContent,
+        }
+      }
+    } catch (e) {
+      // fall through to legacy format / partial handling
+    }
+  }
+
+  // Legacy format: { "id": "adv_001", "name": "...", "match_reason": "..." }
+  const legacyRegex = /\{[\s\S]*?"id":\s*"adv_\d+"[\s\S]*?\}/
+  const legacyMatch = content.match(legacyRegex)
+  if (legacyMatch) {
+    try {
+      const jsonStr = legacyMatch[0]
       const data = JSON.parse(jsonStr)
       const cleanContent = content.replace(jsonStr, '').trim()
-
       return {
-        advisor: {
-          name: data.name,
-          title: data.title || 'Advisor',
-          match_reason: data.match_reason || '',
-          match_score: data.match_score || '',
-          status: 'Available' as 'Available',
-          avatarUrl: ACIVAT_MAP[data.id] || '/astriva_avatar/Bad@3x.png',
-          price: '$2/Min'
-        },
-        cleanContent
+        advisor: normalizeAdvisor(data, data?.id),
+        cleanContent,
       }
     } catch (e) {
       return { advisor: null, cleanContent: content }
@@ -56,10 +81,15 @@ const detectAdvisor = (content: string) => {
   }
 
   // [Optimization] Hide partial JSON output during streaming
-  // Matches the start of the JSON block (e.g. ```json { "id": "adv_...) up to the ID part
+  // Matches the start of the JSON block (e.g. ```json { "advisor": { ... } or { "id": "adv_...)
   // so we can truncate it before it is fully formed and parsed.
-  const partialRegex = /(?:```json\s*)?\{[\s\S]*?"id":\s*"adv_\d+/
-  const partialMatch = content.match(partialRegex)
+  const partialRegexes = [
+    /(?:```json\s*)?\{[\s\S]*?"advisor"\s*:\s*\{[\s\S]*?/,
+    /(?:```json\s*)?\{[\s\S]*?"id":\s*"adv_\d+/,
+  ]
+  const partialMatch = partialRegexes
+    .map((regex) => content.match(regex))
+    .find(match => match && match.index !== undefined)
   if (partialMatch && partialMatch.index !== undefined) {
     return { advisor: null, cleanContent: content.substring(0, partialMatch.index).trim() }
   }
