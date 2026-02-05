@@ -25,6 +25,13 @@ const ACIVAT_MAP: Record<string, string> = {
   'adv_004': '/astriva_avatar/Angry@3x.png'
 }
 
+const ADVISOR_DIRECTORY: Record<string, { name: string, title?: string, avatarUrl?: string }> = {
+  'd4a8e5e1-0359-4b90-a517-283ea9f5d57d': { name: 'Bette Flame' },
+  '01692cb6-c2e5-4de5-8bb5-2e09c7a9223c': { name: 'Advisor Juno' },
+  '3389422a-93b2-4d9d-8ea0-bf0074bc3102': { name: 'Maya' },
+  'fac8b92c-0e6d-4699-be95-a1aa948aa2c6': { name: 'Caroline' },
+}
+
 const detectAdvisor = (content: string) => {
   if (!content) return { advisor: null, cleanContent: '' }
 
@@ -32,18 +39,40 @@ const detectAdvisor = (content: string) => {
     const matchReason = raw?.matchReason ?? raw?.match_reason ?? ''
     const matchScore = raw?.matchScore ?? raw?.match_score ?? ''
     const id = raw?.id ?? fallbackId
+    const knownAdvisor = id ? ADVISOR_DIRECTORY[id] : undefined
     return {
-      name: raw?.name || 'Advisor',
-      title: raw?.title || 'Advisor',
+      name: raw?.name || knownAdvisor?.name || 'Advisor',
+      title: raw?.title || knownAdvisor?.title || 'Advisor',
       match_reason: matchReason,
       match_score: matchScore,
       status: 'Available' as 'Available',
-      avatarUrl: (id && ACIVAT_MAP[id]) ? ACIVAT_MAP[id] : '/astriva_avatar/Bad@3x.png',
+      avatarUrl: (id && ACIVAT_MAP[id])
+        ? ACIVAT_MAP[id]
+        : (knownAdvisor?.avatarUrl || '/astriva_avatar/Bad@3x.png'),
       price: raw?.price || '$2/Min',
     }
   }
 
   // Prefer the new format: { "advisor": { "id": "...", "matchReason": "..." } }
+  const fencedJsonRegex = /```json\s*([\s\S]*?)```/
+  const fencedMatch = content.match(fencedJsonRegex)
+  if (fencedMatch) {
+    try {
+      const jsonStr = fencedMatch[1].trim()
+      const data = JSON.parse(jsonStr)
+      const advisorData = data?.advisor
+      if (advisorData && typeof advisorData === 'object') {
+        const cleanContent = content.replace(fencedMatch[0], '').trim()
+        return {
+          advisor: normalizeAdvisor(advisorData),
+          cleanContent,
+        }
+      }
+    } catch (e) {
+      // fall through to non-fenced parsing / partial handling
+    }
+  }
+
   const newFormatRegex = /\{[\s\S]*?"advisor"\s*:\s*\{[\s\S]*?\}[\s\S]*?\}/
   const newFormatMatch = content.match(newFormatRegex)
   if (newFormatMatch) {
@@ -84,6 +113,7 @@ const detectAdvisor = (content: string) => {
   // Matches the start of the JSON block (e.g. ```json { "advisor": { ... } or { "id": "adv_...)
   // so we can truncate it before it is fully formed and parsed.
   const partialRegexes = [
+    /```json[\s\S]*$/,
     /(?:```json\s*)?\{[\s\S]*?"advisor"\s*:\s*\{[\s\S]*?/,
     /(?:```json\s*)?\{[\s\S]*?"id":\s*"adv_\d+/,
   ]
