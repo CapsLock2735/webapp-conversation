@@ -92,6 +92,20 @@ const Main: FC<IMainProps> = () => {
   const handleStartChat = (inputs: Record<string, any>) => {
     createNewChat()
     setConversationIdChangeBecauseOfNew(true)
+    // force new conversation id
+    setCurrConversationId('-1', APP_ID, false)
+    // clear stored conversation id so it won't restore an old thread
+    try {
+      const conversationIdInfoKey = 'conversationIdInfo'
+      const storedConversationInfo = globalThis.localStorage?.getItem(conversationIdInfoKey)
+        ? JSON.parse(globalThis.localStorage?.getItem(conversationIdInfoKey) || '')
+        : {}
+      delete storedConversationInfo[APP_ID]
+      globalThis.localStorage?.setItem(conversationIdInfoKey, JSON.stringify(storedConversationInfo))
+    }
+    catch (e) {
+      // ignore localStorage errors
+    }
     setCurrInputs(inputs)
     setChatStarted()
     // parse variables in introduction
@@ -145,7 +159,8 @@ const Main: FC<IMainProps> = () => {
           })
           newChatList.push({
             id: item.id,
-            content: item.answer,
+            content: stripJsonBlocksForDisplay(item.answer),
+            raw_content: item.answer,
             agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
             feedback: item.feedback,
             isAnswer: true,
